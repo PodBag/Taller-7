@@ -10,10 +10,14 @@ import java.awt.event.ActionListener;
 import javax.swing.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Collection;
 import uniandes.dpoo.taller7.modelo.Tablero;
 import uniandes.dpoo.taller7.modelo.Top10;
 import uniandes.dpoo.taller7.modelo.RegistroTop10;
-import java.util.Collection;
 
 @SuppressWarnings("serial")
 public class Vista extends JFrame {
@@ -27,6 +31,9 @@ public class Vista extends JFrame {
     private int jugadas;
     private JTextField jugadasText;
     private JTextField jugadorText;
+    private JRadioButton botonFacil;
+    private JRadioButton botonMedio;
+    private JRadioButton botonDificil;
 
     public Vista() {
         setTitle("Juego de LightsOut");
@@ -34,6 +41,7 @@ public class Vista extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         top10 = new Top10();
+        cargarTop10DesdeCSV();
         Base();
         this.setVisible(true);
     }
@@ -71,9 +79,9 @@ public class Vista extends JFrame {
         JLabel dificultad = new JLabel("Dificultad: ");
         pArriba.add(dificultad);
         
-        JRadioButton botonFacil = new JRadioButton("Fácil");
-        JRadioButton botonMedio = new JRadioButton("Medio");
-        JRadioButton botonDificil = new JRadioButton("Difícil");
+        botonFacil = new JRadioButton("Fácil");
+        botonMedio = new JRadioButton("Medio");
+        botonDificil = new JRadioButton("Difícil");
         
         ButtonGroup dificultades = new ButtonGroup();
         dificultades.add(botonFacil);
@@ -104,14 +112,7 @@ public class Vista extends JFrame {
                         lienzo.repaint();
                         jugadas = tablero.darJugadas();
                         jugadasText.setText(String.valueOf(jugadas));
-                        if (tablero.tableroIluminado()) {
-                            int puntaje = tablero.calcularPuntaje();
-                            if (top10.esTop10(puntaje)) {
-                                String nombre = jugadorText.getText();
-                                top10.agregarRegistro(nombre, puntaje);
-                                mostrarTop10();
-                            }
-                        }
+                        verificarJuegoCompleto();
                     }
                 }
             }
@@ -131,22 +132,7 @@ public class Vista extends JFrame {
         nuevo.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                int tamano = lienzo.getTamano();
-                tablero = new Tablero(tamano);
-                int dificultad = 1; // Default difficulty for example
-                if (botonFacil.isSelected()) {
-                    dificultad = 5;
-                } else if (botonMedio.isSelected()) {
-                    dificultad = 10;
-                } else if (botonDificil.isSelected()) {
-                    dificultad = 20;
-                }
-                tablero.desordenar(dificultad);
-                tablero.salvar_tablero();
-                jugadas = 0;
-                jugadasText.setText("0");
-                lienzo.setTablero(tablero.darTablero());
-                lienzo.repaint();
+                iniciarNuevoJuego();
             }
         });
         
@@ -228,6 +214,62 @@ public class Vista extends JFrame {
         top10Dialog.add(scrollPane, BorderLayout.CENTER);
 
         top10Dialog.setVisible(true);
+    }
+
+    private void cargarTop10DesdeCSV() {
+        try (BufferedReader br = new BufferedReader(new FileReader("data/top10.csv"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] values = line.split(";");
+                String nombre = values[0];
+                int puntos = Integer.parseInt(values[1]);
+                top10.agregarRegistro(nombre, puntos);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void actualizarCSV(String nombre, int puntos) {
+        try (FileWriter fw = new FileWriter("data/top10.csv", true)) {
+            fw.write(nombre + ";" + puntos + "\n");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void verificarJuegoCompleto() {
+        if (tablero.tableroIluminado()) {
+            int puntaje = tablero.calcularPuntaje();
+            if (top10.esTop10(puntaje)) {
+                String nombre = jugadorText.getText();
+                top10.agregarRegistro(nombre, puntaje);
+                actualizarCSV(nombre, puntaje);
+                mostrarTop10();
+            } else {
+                JOptionPane.showMessageDialog(this, "¡Felicidades! Has completado el juego con " + jugadas + " jugadas.");
+            }
+            iniciarNuevoJuego();
+        }
+    }
+
+    private void iniciarNuevoJuego() {
+        int tamano = lienzo.getTamano();
+        tablero = new Tablero(tamano);
+        int dificultad = 1; // Default difficulty for example
+        if (botonFacil.isSelected()) {
+            dificultad = 5;
+        } else if (botonMedio.isSelected()) {
+            dificultad = 10;
+        } else if (botonDificil.isSelected()) {
+            dificultad = 20;
+        }
+        tablero.desordenar(dificultad);
+        tablero.salvar_tablero();
+        jugadas = 0;
+        jugadasText.setText("0");
+        lienzo.setTablero(tablero.darTablero());
+        lienzo.repaint();
     }
 
     public static void main(String[] args) {
